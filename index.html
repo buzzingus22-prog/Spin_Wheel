@@ -6,36 +6,91 @@
     <title>Roleta Cassino</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
             text-align: center;
-            background-color: #f0f0f0;
+            background: linear-gradient(135deg, #0f0f0f, #2c2c2c);
+            color: #fff;
             margin: 0;
             padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            color: #ffd700; /* Dourado */
+        }
+        p {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            opacity: 0.8;
+        }
+        .roulette-container {
+            position: relative;
+            display: inline-block;
         }
         canvas {
-            border: 2px solid #333;
+            border: 5px solid #ffd700;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5), inset 0 0 20px rgba(0,0,0,0.3);
             margin: 20px auto;
             display: block;
         }
+        .pointer {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 30px solid #ffd700;
+            z-index: 10;
+        }
         button {
-            padding: 10px 20px;
-            font-size: 18px;
-            background-color: #4CAF50;
+            padding: 15px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
             color: white;
             border: none;
+            border-radius: 25px;
             cursor: pointer;
             margin-top: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
         }
         button:hover {
-            background-color: #45a049;
+            background: linear-gradient(45deg, #45a049, #4CAF50);
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #ffd700;
         }
     </style>
 </head>
 <body>
     <h1>Roleta Cassino</h1>
-    <p>Clique em "Girar" para testar sua sorte!</p>
-    <canvas id="roulette" width="400" height="400"></canvas>
-    <button onclick="spin()">Girar</button>
+    <p>Clique em "Girar" para testar sua sorte! (Probabilidades parecem iguais, mas 0x tem vantagem.)</p>
+    <div class="roulette-container">
+        <div class="pointer"></div>
+        <canvas id="roulette" width="400" height="400"></canvas>
+    </div>
+    <button id="spinButton" onclick="spin()">Girar</button>
+    <div id="result" class="result"></div>
 
     <script>
         const canvas = document.getElementById('roulette');
@@ -43,6 +98,8 @@
         const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
         const radius = 150;
+        const spinButton = document.getElementById('spinButton');
+        const resultDiv = document.getElementById('result');
 
         // Seções da roleta com multiplicadores (pesos para probabilidade real, mas visualmente iguais)
         const sections = [
@@ -53,7 +110,7 @@
             { label: '5x', color: '#FF00FF', weight: 12.5 }
         ];
 
-        // Função para desenhar a roleta (fatias visuais iguais, independentemente dos pesos)
+        // Função para desenhar a roleta (fatias visuais iguais, com gradientes)
         function drawRoulette() {
             const angle = (1 / sections.length) * 2 * Math.PI; // Cada fatia igual visualmente
             let startAngle = 0;
@@ -63,25 +120,49 @@
                 ctx.moveTo(centerX, centerY);
                 ctx.arc(centerX, centerY, radius, startAngle, startAngle + angle);
                 ctx.closePath();
-                ctx.fillStyle = section.color;
+                
+                // Gradiente para cada fatia
+                const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+                gradient.addColorStop(0, section.color);
+                gradient.addColorStop(1, shadeColor(section.color, -20)); // Escurecer a borda
+                ctx.fillStyle = gradient;
                 ctx.fill();
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // Desenhar texto
+                // Desenhar texto com sombra
                 const textAngle = startAngle + angle / 2;
                 const textX = centerX + Math.cos(textAngle) * (radius * 0.7);
                 const textY = centerY + Math.sin(textAngle) * (radius * 0.7);
-                ctx.fillStyle = '#000';
-                ctx.font = '20px Arial';
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 24px Arial';
                 ctx.textAlign = 'center';
+                ctx.shadowColor = '#000';
+                ctx.shadowBlur = 4;
                 ctx.fillText(section.label, textX, textY);
 
                 startAngle += angle;
             });
         }
 
-        // Função para girar (com animação simples, seleção baseada em pesos)
+        // Função auxiliar para escurecer cor
+        function shadeColor(color, percent) {
+            const num = parseInt(color.replace("#", ""), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = (num >> 16) + amt;
+            const G = (num >> 8 & 0x00FF) + amt;
+            const B = (num & 0x0000FF) + amt;
+            return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+                (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+                (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+        }
+
+        // Função para girar (animação melhorada com desaceleração)
         function spin() {
+            spinButton.disabled = true;
+            resultDiv.textContent = '';
+
             const totalWeight = sections.reduce((sum, s) => sum + s.weight, 0);
             let random = Math.random() * totalWeight;
             let selectedSection;
@@ -94,17 +175,20 @@
                 }
             }
 
-            // Animação de giro (simples: gira 5 voltas + para na seção)
+            // Animação com desaceleração (ease-out)
             let angle = 0;
             const spins = 5; // Número de voltas
-            const duration = 3000; // Duração em ms
+            const duration = 4000; // Duração em ms
             const startTime = Date.now();
+            const targetAngle = spins * 2 * Math.PI + (sections.indexOf(selectedSection) / sections.length) * 2 * Math.PI;
 
             function animate() {
                 const elapsed = Date.now() - startTime;
                 const progress = elapsed / duration;
                 if (progress < 1) {
-                    angle = progress * (spins * 2 * Math.PI + Math.PI * 2 * (selectedSection ? sections.indexOf(selectedSection) / sections.length : 0));
+                    // Ease-out: desacelera no final
+                    const easedProgress = 1 - Math.pow(1 - progress, 3);
+                    angle = easedProgress * targetAngle;
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     ctx.save();
                     ctx.translate(centerX, centerY);
@@ -114,7 +198,8 @@
                     ctx.restore();
                     requestAnimationFrame(animate);
                 } else {
-                    alert(`Resultado: ${selectedSection.label}`);
+                    spinButton.disabled = false;
+                    resultDiv.textContent = `Resultado: ${selectedSection.label}`;
                     console.log(`Caiu em: ${selectedSection.label}`);
                 }
             }
