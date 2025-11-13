@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roleta Cassino</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        canvas {
+            border: 2px solid #333;
+            margin: 20px auto;
+            display: block;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Roleta Cassino</h1>
+    <p>Clique em "Girar" para testar sua sorte! (Probabilidades parecem iguais, mas 0x tem vantagem.)</p>
+    <canvas id="roulette" width="400" height="400"></canvas>
+    <button onclick="spin()">Girar</button>
+
+    <script>
+        const canvas = document.getElementById('roulette');
+        const ctx = canvas.getContext('2d');
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = 150;
+
+        // Seções da roleta com multiplicadores (pesos para probabilidade real, mas visualmente iguais)
+        const sections = [
+            { label: '0x', color: '#FF0000', weight: 50 }, // Maior peso para 0x
+            { label: '1x', color: '#00FF00', weight: 12.5 },
+            { label: '2x', color: '#0000FF', weight: 12.5 },
+            { label: '4x', color: '#FFFF00', weight: 12.5 },
+            { label: '5x', color: '#FF00FF', weight: 12.5 }
+        ];
+
+        // Função para desenhar a roleta (fatias visuais iguais, independentemente dos pesos)
+        function drawRoulette() {
+            const angle = (1 / sections.length) * 2 * Math.PI; // Cada fatia igual visualmente
+            let startAngle = 0;
+
+            sections.forEach(section => {
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, startAngle + angle);
+                ctx.closePath();
+                ctx.fillStyle = section.color;
+                ctx.fill();
+                ctx.stroke();
+
+                // Desenhar texto
+                const textAngle = startAngle + angle / 2;
+                const textX = centerX + Math.cos(textAngle) * (radius * 0.7);
+                const textY = centerY + Math.sin(textAngle) * (radius * 0.7);
+                ctx.fillStyle = '#000';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(section.label, textX, textY);
+
+                startAngle += angle;
+            });
+        }
+
+        // Função para girar (com animação simples, seleção baseada em pesos)
+        function spin() {
+            const totalWeight = sections.reduce((sum, s) => sum + s.weight, 0);
+            let random = Math.random() * totalWeight;
+            let selectedSection;
+
+            for (let section of sections) {
+                random -= section.weight;
+                if (random <= 0) {
+                    selectedSection = section;
+                    break;
+                }
+            }
+
+            // Animação de giro (simples: gira 5 voltas + para na seção)
+            let angle = 0;
+            const spins = 5; // Número de voltas
+            const duration = 3000; // Duração em ms
+            const startTime = Date.now();
+
+            function animate() {
+                const elapsed = Date.now() - startTime;
+                const progress = elapsed / duration;
+                if (progress < 1) {
+                    angle = progress * (spins * 2 * Math.PI + Math.PI * 2 * (selectedSection ? sections.indexOf(selectedSection) / sections.length : 0));
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.save();
+                    ctx.translate(centerX, centerY);
+                    ctx.rotate(angle);
+                    ctx.translate(-centerX, -centerY);
+                    drawRoulette();
+                    ctx.restore();
+                    requestAnimationFrame(animate);
+                } else {
+                    alert(`Resultado: ${selectedSection.label}`);
+                    console.log(`Caiu em: ${selectedSection.label}`);
+                }
+            }
+            animate();
+        }
+
+        // Desenhar inicialmente
+        drawRoulette();
+    </script>
+</body>
+</html>
